@@ -52,6 +52,8 @@ class ChatTurn:
 # else (401, 429, 5xx) is a real error and re-raises.
 _STREAM_UNSUPPORTED_STATUS = frozenset({400, 404, 405, 501})
 
+_ERROR_BODY_PREVIEW_CHARS = 500
+
 # Set when an endpoint rejects multimodal image parts — later calls in this
 # process skip the parts-provision step entirely (text-only fallback).
 _TEXT_ONLY_ENDPOINTS: set[str] = set()
@@ -252,6 +254,16 @@ def _looks_like_image_rejection(status_code: int, body: str) -> bool:
     lowered = (body or "").lower()
     markers = ("image", "multimodal", "vision", "content part", "image_url")
     return any(marker in lowered for marker in markers)
+
+
+def _http_error_detail(resp: httpx.Response) -> str:
+    text = resp.text
+    try:
+        error = json.loads(text).get("error")
+    except (ValueError, AttributeError):
+        error = None
+    message = error.get("message") if isinstance(error, dict) else error
+    return str(message or text).strip()[:_ERROR_BODY_PREVIEW_CHARS]
 
 
 def _probe_error(exc: BaseException) -> str:
@@ -741,6 +753,14 @@ class LLMClient:
                     elif "tools" in payload:
                         retry_without = "tools"
                 if retry_without is None:
+                    if resp.is_error:
+                        await resp.aread()
+                        raise httpx.HTTPStatusError(
+                            f"LLM request failed (HTTP {resp.status_code}): "
+                            f"{_http_error_detail(resp)}",
+                            request=resp.request,
+                            response=resp,
+                        )
                     resp.raise_for_status()
                     async for ev in self._parse_sse(resp, tool_acc):
                         yield ev
