@@ -619,3 +619,52 @@ async def test_chat_with_tools_accumulates_streamed_tool_call(monkeypatch):
     call = msg["tool_calls"][0]
     assert call["function"]["name"] == "enqueue_asset"
     assert json.loads(call["function"]["arguments"]) == {"scene_id": 3}
+
+
+class _UnreadBody(httpx.AsyncByteStream):
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    async def __aiter__(self):
+        yield self._data
+
+
+def _provider_error_router(status: int, payload: dict):
+    def router(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            status,
+            headers={"content-type": "application/json"},
+            stream=_UnreadBody(json.dumps(payload).encode()),
+            request=request,
+        )
+
+    return router
+
+
+@pytest.mark.parametrize("status", [401, 402, 429, 500])
+async def test_chat_surfaces_provider_error_message_on_http_error(monkeypatch, status):
+    message = "No active plan was found on this account"
+    router = _provider_error_router(status, {"error": {"message": message}})
+    client = LLMClient()
+    monkeypatch.setattr(client, "client", httpx.AsyncClient(transport=httpx.MockTransport(router)))
+
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        await client.chat([{"role": "user", "content": "hi"}])
+
+    assert caught.value.response.status_code == status
+    assert message in str(caught.value)
+    assert str(status) in str(caught.value)
+
+
+async def test_chat_stream_http_error_body_is_readable(monkeypatch):
+    payload = {"detail": "quota exhausted"}
+    router = _provider_error_router(402, payload)
+    client = LLMClient()
+    monkeypatch.setattr(client, "client", httpx.AsyncClient(transport=httpx.MockTransport(router)))
+
+    with pytest.raises(httpx.HTTPStatusError) as caught:
+        async for _ in client.chat_stream([{"role": "user", "content": "hi"}]):
+            pass
+
+    assert json.loads(caught.value.response.text) == payload
+    assert "quota exhausted" in str(caught.value)
