@@ -1,0 +1,308 @@
+{
+ "1": {
+  "class_type": "UNETLoader",
+  "inputs": {
+   "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+   "weight_dtype": "default"
+  },
+  "_meta": {
+   "title": "Load Diffusion Model (Qwen Image 2.1 Turbo)"
+  }
+ },
+ "51": {
+  "class_type": "LoraLoaderModelOnly",
+  "inputs": {
+   "model": [
+    "1",
+    0
+   ],
+   "lora_name": "qwen21_glamour_realism_v1.safetensors",
+   "strength_model": 0.6
+  },
+  "_meta": {
+   "title": "Load LoRA (Realism)"
+  }
+ },
+ "2": {
+  "class_type": "QwenImage21Cache",
+  "inputs": {
+   "model": [
+    "51",
+    0
+   ],
+   "device": "auto",
+   "dtype": "default"
+  },
+  "_meta": {
+   "title": "Qwen Image 2.1 Cache"
+  }
+ },
+ "3": {
+  "class_type": "CLIPLoader",
+  "inputs": {
+   "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+   "type": "qwen_image",
+   "device": "default"
+  },
+  "_meta": {
+   "title": "Load CLIP"
+  }
+ },
+ "4": {
+  "class_type": "VAELoader",
+  "inputs": {
+   "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+  },
+  "_meta": {
+   "title": "Load VAE"
+  }
+ },
+ "5": {
+  "class_type": "ManualSigmas",
+  "inputs": {
+   "sigmas": "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0"
+  },
+  "_meta": {
+   "title": "Trained 8-step sigmas"
+  }
+ },
+ "6": {
+  "class_type": "KSamplerSelect",
+  "inputs": {
+   "sampler_name": "euler"
+  },
+  "_meta": {
+   "title": "Sampler"
+  }
+ },
+ "7": {
+  "class_type": "RandomNoise",
+  "inputs": {
+   "noise_seed": [
+    "103",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "Noise"
+  }
+ },
+ "100": {
+  "class_type": "PrimitiveStringMultiline",
+  "inputs": {
+   "value": ""
+  },
+  "_meta": {
+   "title": "(Input:prompt) Character Description"
+  }
+ },
+ "101": {
+  "class_type": "PrimitiveInt",
+  "inputs": {
+   "value": 2048
+  },
+  "_meta": {
+   "title": "Width"
+  }
+ },
+ "102": {
+  "class_type": "PrimitiveInt",
+  "inputs": {
+   "value": 1152
+  },
+  "_meta": {
+   "title": "Height"
+  }
+ },
+ "103": {
+  "class_type": "PrimitiveInt",
+  "inputs": {
+   "value": 42
+  },
+  "_meta": {
+   "title": "(Input:seed) Seed"
+  }
+ },
+ "110": {
+  "class_type": "PrimitiveStringMultiline",
+  "inputs": {
+   "value": "Photorealistic character reference sheet: one wide image on a seamless plain light grey studio backdrop, showing the single character from the reference image <image1> nine times and nothing else.\n\nThe character is the one in <image1>, with exactly the same face, hair, age, skin and build. The brief below decides the outfit and accessories and adds what the image does not show. None of the brief's words appear in the image and any panel list in it is ignored:\n"
+  },
+  "_meta": {
+   "title": "Sheet layout and consistency rules"
+  }
+ },
+ "111": {
+  "class_type": "PrimitiveStringMultiline",
+  "inputs": {
+   "value": "\n\nNine views in two rows, on one continuous backdrop with no frames. The top row holds five full-body views of the character standing upright, in one evenly spaced row: front view, three-quarter front view, side profile facing right, three-quarter back view, back view. The bottom row holds four large head close-ups: the face from the front, the face in three-quarter view, the head in side profile facing right, and the back of the head. Each shows the head and neck only, cropped below the neck in a clean straight line with no fading, and is about three times as large as the heads of the full-body figures.\n\nThe five full-body figures stand upright at exactly the same size and build, with their heads on one line and their feet on one floor line. Face, hair, age, skin and build are exactly those of <image1>. Outfit, accessories and every mark are as the brief describes them, or as in <image1> where the brief says nothing, and identical in every view. The backdrop, pose, lighting and framing of <image1> are not copied. Calm neutral expression, relaxed neutral pose.\n\nA real studio photograph made as a film casting reference, 85 mm lens, soft even light, everything in sharp focus, true-to-life skin, hair and fabric, natural colours. No text, labels, numbers, borders, frames or watermark."
+  },
+  "_meta": {
+   "title": "Realism and no-text rules"
+  }
+ },
+ "112": {
+  "class_type": "StringConcatenate",
+  "inputs": {
+   "string_a": [
+    "110",
+    0
+   ],
+   "string_b": [
+    "100",
+    0
+   ],
+   "delimiter": ""
+  },
+  "_meta": {
+   "title": "Rules + character"
+  }
+ },
+ "113": {
+  "class_type": "StringConcatenate",
+  "inputs": {
+   "string_a": [
+    "112",
+    0
+   ],
+   "string_b": [
+    "111",
+    0
+   ],
+   "delimiter": ""
+  },
+  "_meta": {
+   "title": "Full sheet prompt"
+  }
+ },
+ "30": {
+  "class_type": "LoadImage",
+  "inputs": {
+   "image": "reference_photo.png"
+  },
+  "_meta": {
+   "title": "(Input:image) Reference Photo"
+  }
+ },
+ "10": {
+  "class_type": "TextEncodeQwenImage21",
+  "inputs": {
+   "clip": [
+    "3",
+    0
+   ],
+   "prompt": [
+    "113",
+    0
+   ],
+   "negative_prompt": "",
+   "resolution": 1024,
+   "images.image_1": [
+    "30",
+    0
+   ],
+   "vae": [
+    "4",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "Text Encode (Qwen Image 2.1) with reference"
+  }
+ },
+ "8": {
+  "class_type": "CFGGuider",
+  "inputs": {
+   "model": [
+    "2",
+    0
+   ],
+   "positive": [
+    "10",
+    0
+   ],
+   "negative": [
+    "10",
+    1
+   ],
+   "cfg": 1.0
+  },
+  "_meta": {
+   "title": "Guider"
+  }
+ },
+ "11": {
+  "class_type": "EmptyLatentImage",
+  "inputs": {
+   "width": [
+    "101",
+    0
+   ],
+   "height": [
+    "102",
+    0
+   ],
+   "batch_size": 1
+  },
+  "_meta": {
+   "title": "Sheet canvas"
+  }
+ },
+ "20": {
+  "class_type": "SamplerCustomAdvanced",
+  "inputs": {
+   "noise": [
+    "7",
+    0
+   ],
+   "guider": [
+    "8",
+    0
+   ],
+   "sampler": [
+    "6",
+    0
+   ],
+   "sigmas": [
+    "5",
+    0
+   ],
+   "latent_image": [
+    "11",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "Sampler"
+  }
+ },
+ "21": {
+  "class_type": "VAEDecode",
+  "inputs": {
+   "samples": [
+    "20",
+    0
+   ],
+   "vae": [
+    "4",
+    0
+   ]
+  },
+  "_meta": {
+   "title": "VAE Decode"
+  }
+ },
+ "22": {
+  "class_type": "SaveImage",
+  "inputs": {
+   "images": [
+    "21",
+    0
+   ],
+   "filename_prefix": "calliope/QwenCharSheetRef"
+  },
+  "_meta": {
+   "title": "(output:image) Character Sheet"
+  }
+ }
+}
