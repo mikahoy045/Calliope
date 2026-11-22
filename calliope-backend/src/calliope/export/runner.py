@@ -92,6 +92,14 @@ def target_fps(probes: list[dict[str, Any]]) -> float:
     return float(winners[0])
 
 
+def target_frame(probes: list[dict[str, Any]]) -> tuple[int, int]:
+    portrait = sum(1 for p in probes if (p.get("height") or 0) > (p.get("width") or 0) > 0)
+    landscape = sum(1 for p in probes if (p.get("width") or 0) >= (p.get("height") or 0) > 0)
+    if portrait > landscape:
+        return EXPORT_HEIGHT, EXPORT_WIDTH
+    return EXPORT_WIDTH, EXPORT_HEIGHT
+
+
 def collect_clips(project_id: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Clips in global playback order (scene order, then clip order), split
     into (with clip_path, without). Each row keeps its scene heading for the
@@ -158,7 +166,7 @@ async def probe(path: str | Path) -> dict[str, Any]:
         "-v",
         "error",
         "-show_entries",
-        "format=duration:stream=codec_type,r_frame_rate",
+        "format=duration:stream=codec_type,r_frame_rate,width,height",
         "-of",
         "json",
         str(path),
@@ -174,11 +182,14 @@ async def probe(path: str | Path) -> dict[str, Any]:
     streams = data.get("streams") or []
     has_audio = any(s.get("codec_type") == "audio" for s in streams)
     video_fps = 0.0
+    width = height = 0
     for s in streams:
         if s.get("codec_type") == "video":
             video_fps = parse_rate(s.get("r_frame_rate"))
+            width = int(s.get("width") or 0)
+            height = int(s.get("height") or 0)
             break
-    return {"duration": duration, "has_audio": has_audio, "fps": video_fps}
+    return {"duration": duration, "has_audio": has_audio, "fps": video_fps, "width": width, "height": height}
 
 
 # EBU R128 loudness normalisation, then back to 48 kHz: loudnorm resamples to 192 kHz
@@ -224,9 +235,10 @@ def build_ffmpeg_cmd(
             next_index += 1
             cmd += ["-f", "lavfi", "-i", "anullsrc=cl=stereo:r=48000"]
 
+    frame_w, frame_h = target_frame(probes)
     v_chain = (
-        f"scale={EXPORT_WIDTH}:{EXPORT_HEIGHT}:force_original_aspect_ratio=decrease,"
-        f"pad={EXPORT_WIDTH}:{EXPORT_HEIGHT}:(ow-iw)/2:(oh-ih)/2,"
+        f"scale={frame_w}:{frame_h}:force_original_aspect_ratio=decrease,"
+        f"pad={frame_w}:{frame_h}:(ow-iw)/2:(oh-ih)/2,"
         f"setsar=1,fps={rate_str},settb=AVTB"
     )
     a_chain = "aformat=sample_rates=48000:channel_layouts=stereo"
