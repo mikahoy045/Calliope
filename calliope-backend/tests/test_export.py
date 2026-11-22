@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 from calliope.comfyui.client import ComfyUIClient
-from calliope.export.runner import DEFAULT_EXPORT_FPS, build_ffmpeg_cmd, collect_clips, parse_rate, target_fps
+from calliope.export.runner import (
+    DEFAULT_EXPORT_FPS,
+    build_ffmpeg_cmd,
+    collect_clips,
+    parse_rate,
+    target_fps,
+    target_frame,
+)
 from calliope.config import settings
 from calliope.db import get_db
 
@@ -289,3 +296,31 @@ def test_build_ffmpeg_cmd_fractional_fps_formatting():
     assert "fps=23.976" in joined
     assert "fps=23.976023976" not in joined
     assert "fps=24" not in joined
+
+
+def test_target_frame_portrait_majority_exports_portrait():
+    probes = [
+        {"width": 768, "height": 1344},
+        {"width": 768, "height": 1344},
+        {"width": 1280, "height": 720},
+    ]
+    assert target_frame(probes) == (1080, 1920)
+
+
+def test_target_frame_landscape_tie_and_missing_default_to_landscape():
+    assert target_frame([]) == (1920, 1080)
+    assert target_frame([{"duration": 5.0, "has_audio": True}]) == (1920, 1080)
+    assert target_frame([{"width": 1280, "height": 720}]) == (1920, 1080)
+    assert target_frame([{"width": 768, "height": 1344}, {"width": 1280, "height": 720}]) == (1920, 1080)
+
+
+def test_build_ffmpeg_cmd_portrait_clips_export_portrait_frame():
+    clips = [{"clip_path": "a.mp4"}, {"clip_path": "b.mp4"}]
+    probes = [
+        {"duration": 4.0, "has_audio": True, "fps": 24.0, "width": 768, "height": 1344},
+        {"duration": 3.0, "has_audio": True, "fps": 24.0, "width": 768, "height": 1344},
+    ]
+    joined = " ".join(str(c) for c in build_ffmpeg_cmd(clips, probes, "out.mp4"))
+    assert "scale=1080:1920:force_original_aspect_ratio=decrease" in joined
+    assert "pad=1080:1920:" in joined
+    assert "1920:1080" not in joined
