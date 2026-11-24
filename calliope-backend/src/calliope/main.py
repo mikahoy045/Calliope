@@ -15,6 +15,7 @@ from starlette.types import Scope
 from calliope import __version__
 from calliope.config import settings
 from calliope.db import get_db, migrate_db, rebase_stale_asset_paths
+from calliope.events.external_writes import external_write_watcher
 from calliope.queue.worker import queue_worker
 from calliope.routers import (
     agent,
@@ -107,11 +108,13 @@ async def lifespan(app: FastAPI):
 
     runner.recover_orphaned_sessions()
     await queue_worker.start()
+    await external_write_watcher.start()
     logger.info("Calliope started — db=%s dry_run=%s", settings.db_path, settings.dry_run)
     yield
     from calliope.agent.harness.runner import runner
 
     await runner.shutdown()
+    await external_write_watcher.stop()
     await queue_worker.stop()
     logger.info("Calliope shutting down")
 
