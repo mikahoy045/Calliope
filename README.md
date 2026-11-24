@@ -268,6 +268,39 @@ Multi-line text **must** go through `--idea-file` (or `--file -` for stdin).
 `cmd.exe` terminates a command line at a raw newline, so the argument after it is
 silently dropped and the command still exits 0.
 
+## MCP server — the same door for MCP clients
+
+`calliope.mcp_server` exposes every `calliope-cli` command as an MCP tool over
+stdio (`project_list`, `story_append`, `clips_update`, ...). The tool list and
+the payload shapes are built from the CLI's own command tables and input models,
+and each call runs the same handler, so the rules above hold unchanged: no
+delete, no model call, no images or video, a drift check on `expect_hash`, and
+an audit row per write (recorded with actor `mcp`).
+
+```bash
+calliope-backend/.venv/bin/python -m calliope.mcp_server
+```
+
+Register it in an MCP client as a stdio server. When Calliope runs on another
+machine, start it through SSH:
+
+```bash
+claude mcp add --scope user calliope -- \
+  ssh user@host /path/to/Calliope/calliope-backend/.venv/bin/python -m calliope.mcp_server
+```
+
+Two differences from the CLI:
+
+- **Image fields are not offered.** Image prompts, sheets, portraits, reference
+  images and covers stay in the web UI.
+- **A replace that would remove a render is refused.** `script_replace_range`
+  and `clips_replace_range` are checked with a dry run first; when a removed
+  scene or clip holds a render or saved video settings, the call fails with the
+  list of rows, and goes through only with `allow_render_loss: true`.
+
+Set `CALLIOPE_MCP_LOG_LEVEL` (default `WARNING`) to change what the server logs
+to stderr.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE) 
@@ -278,6 +311,7 @@ This project is licensed under the [MIT License](LICENSE)
 calliope-backend/            FastAPI backend (Python)
   src/calliope/authoring/    the only place SQL lives; shared with the web UI
   src/calliope/cli/          calliope-cli — no SQL, no shell, no model calls
+  src/calliope/mcp_server/   the CLI's commands as MCP tools over stdio
   skills_opencode/           agent-facing skill for the CLI
 calliope-web/                SvelteKit frontend
 calliope-cli.bat             CLI entry point (Windows)
