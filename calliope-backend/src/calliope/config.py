@@ -197,6 +197,7 @@ class Settings(BaseSettings):
 
     queue_concurrency: int = 1
     queue_poll_interval_sec: float = 2.0
+    external_write_poll_sec: float = Field(default=1.0, gt=0)
     # How long the worker keeps polling ComfyUI /history before giving up,
     # and the wall-clock cap on one agent tool call. Long video workflows
     # routinely exceed 10 minutes; 0 = wait until the job or tool finishes.

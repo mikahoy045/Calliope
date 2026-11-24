@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { createMutation, createQuery, useQueryClient } from '@tanstack/svelte-query';
 	import { projects, type Project } from '$lib/api';
@@ -10,6 +11,7 @@
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { toast } from '$lib/toast';
+	import { connectEvents } from '$lib/events';
 
 	const client = useQueryClient();
 
@@ -17,6 +19,14 @@
 		queryKey: ['projects'],
 		queryFn: projects.list,
 	});
+
+	onMount(() =>
+		connectEvents((ev) => {
+			if (ev.type === 'events.resync' || ev.type === 'story.ready') {
+				client.invalidateQueries({ queryKey: ['projects'] });
+			}
+		}),
+	);
 
 	const createProjectMutation = createMutation({
 		mutationFn: projects.create,
